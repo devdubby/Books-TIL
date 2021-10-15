@@ -12,7 +12,7 @@
   <button id="increase">+</button>
 </div>
 ```
-우리가, 버튼을 눌러서 저 숫자 0 값을 바꿔주려면 각 DOM 엘리먼트에 대한 레퍼런스를 찾고, 해당 DOM 에 접근하여 원하는 작업을 해줘야하는데 지금은 간단해 보이지만 다양한 기능이 있을 경우 이러한 작업을 계속 해줘야 하는 것이다.
+우리가, 버튼을 눌러서 저 숫자 0 값을 바꿔주려면 각 DOM 엘리먼트에 대한 레퍼런스를 찾고, 해당 DOM 에 접근하여 원하는 작업을 해줘야하는데 지금은 간단해 보이지만 다양한 기능이 있을 경우 이러한 작업을 계속 해줘야 하는 것 이다.
 
 ```javascript
 let number = 0;
@@ -124,6 +124,80 @@ React가 Virtual DOM을 활용하는 방식이라는 얘기를 많이 들어봤�
 
 > React는 항상 전체 앱을 재렌더링할 수도 있지만, 최종적으로 출력되는 결과는 항상 같을 것입니다. 좀 더 정확히 말하자면, 여기서 말하는 재렌더링은 모든 컴포넌트의 render를 호출하는 것이지 React가 언마운트시키고 다시 마운트하는 것은 아닙니다.
 즉, 앞서 설명했던 규칙에 따라 렌더링 전후에 변경된 부분만을 적용할 것입니다.
+
+### Diffing 알고리즘
+
+Diffing 알고리즘은 트리를 비교할 때 기본적으로 서브트리들의 위치(level-by-level)를 기준으로 비교한다.
+
+![diffing](https://user-images.githubusercontent.com/35620465/137418952-bccc766c-8cb7-44d7-b578-984b17927c28.png)
+
+### 같은 위치에서 엘리먼트의 타입이 다른 경우
+
+- 기존 트리를 제거 후 새로운 트리 만든다.
+- 기존 트리 제거시 트리 내부의 엘리먼트/컴포넌트들은 모두 제거한다.
+- 새로운 트리를 만들 때 내부 엘리먼트/컴포넌트들도 모두 새로 만든다.
+
+```javascript
+{/* Before */}
+<div>
+  <Counter /> {/* Will unmount */}
+</div>
+
+{/* After */}
+<span>
+  <Counter /> {/* Will mount, Did mount */}
+</span>
+```
+
+### 같은 위치에서 엘리먼트가 DOM을 표현하고 그 타입이 같은 경우
+
+- 엘리먼트의 attributes를 비교한다.
+- 변경된 attributes만 업데이트한다.
+- 자식 엘리먼트들에 diff 알고리즘을 재귀적으로 적용한다.
+
+```javascript
+{/* Before */}
+<div className="before" title="stuff" />
+
+{/* After */}
+<div className="after" title="stuff" /> {/* Update className */}
+```
+
+### 같은 위치에서 엘리먼트가 컴포넌트를 표현하고 그 타입이 같은 경우
+
+- 컴포넌트 인스턴스 자체는 변하지 않는다.(때문에 컴포넌트의 state가 유지된다.)
+- 컴포넌트 인스턴스의 업데이트 전 라이프 사이클 메서드들이 호출되며 props가 업데이트된다.
+- render()를 호출하고, 컴포넌트의 이전 엘리먼트 트리와 다음 엘리먼트 트리에 대해 diff 알고리즘을 재귀적으로 적용한다.
+
+```javascript
+{/* Before */}
+<Counter value="3" />
+
+{/* After */}
+{/* Will recevie props, Will update, Render --> diff algorithm recurses */}
+<Counter value="4" />
+```
+
+### 리스트 엘리먼트
+기본적으로 자식 엘리먼트들에 대해 반복적인 비교를 할 때, React는 이전/다음 상태의 자식 엘리먼트 목록을 함께 반복하고 그 차이를 본다. 따라서 엘리먼트들의 정렬과 같은 상황에 취약하다.
+
+```javascript
+{/* Before */}
+<ul>
+  <li>first</li> {/* prev-first */}
+  <li>second</li>  {/* prev-second */}
+</ul>
+
+{/* After */}
+<ul>
+  <li>second</li> {/* Compares prev-first --> Update dom */}
+  <li>first</li> {/* Compares prev-second --> Update dom */}
+  <li>third</li> {/* Compares prev --> Insert dom */}
+</ul>
+```
+
+### Key
+엘리먼트들에게 Key 속성을 명시적으로 부여하여 위와 같은 상황에 발생하는 필요 없는 업데이트를 최소화시킬 수 있다. key는 하나의 서브 트리에서만 유니크한 값을 가지면 되고 각 렌더링에서 변경이 없어야 한다. 이 때문에 React 개발시 key 값을 안넣어 주면 에러에 직면하게 되는 것 이다.
 
 참고: [React의 비교 알고리즘](https://ko.reactjs.org/docs/reconciliation.html#the-diffing-algorithm)
 
